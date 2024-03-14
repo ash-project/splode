@@ -18,12 +18,12 @@ defmodule Splode do
   @doc """
   Returns true if the given value is a splode error.
   """
-  @callback splode_error?() :: boolean()
+  @callback splode_error?(term) :: boolean()
 
   @doc """
   Sets the path on the error or errors
   """
-  @callback set_path(Splode.Error.t() | [Splode.Error.t()]) ::
+  @callback set_path(Splode.Error.t() | [Splode.Error.t()], term | list(term)) ::
               Splode.Error.t() | [Splode.Error.t()]
 
   @doc """
@@ -40,7 +40,7 @@ defmodule Splode do
 
   This allows for errors to be serialized and deserialized
   """
-  @callback from_json(map) :: Splode.Error.t()
+  @callback from_json(module, map) :: Splode.Error.t()
 
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], generated: true, location: :keep do
