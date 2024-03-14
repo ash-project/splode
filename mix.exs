@@ -32,7 +32,7 @@ defmodule Splode.MixProject do
 
   defp package do
     [
-      name: :ash_flow,
+      name: :splode,
       licenses: ["MIT"],
       files: ~w(lib .formatter.exs mix.exs README* LICENSE*
       CHANGELOG* documentation),
