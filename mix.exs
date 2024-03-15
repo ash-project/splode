@@ -4,7 +4,7 @@ defmodule Splode.MixProject do
   @version "0.1.0"
 
   @description """
-  A "soft deprecated" tool for composing workflows with your Ash Framework resources
+  Splode helps you deal with errors and exceptions in your application that are aggregatable and consistent.
   """
 
   def project do
