@@ -165,6 +165,7 @@ def get_user!(user_id) do
     {:error, error} -> raise MyApp.Errors.to_class(error)
   end
 end
+
 def get_user(user_id) do
   case Repo.get(user_id) do
     nil ->
