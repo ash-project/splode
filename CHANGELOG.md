@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.0](https://github.com/ash-project/splode/compare/v0.1.1...v0.2.0) (2024-03-18)
+### Breaking Changes:
+
+* message/1 instead of splode_message/1
+
+
+
+### Improvements:
+
+* add `use Splode.ErrorClass`
+
+* store the module that created an error in the `splode` key
+
 ## [v0.1.1](https://github.com/ash-project/splode/compare/v0.1.0...v0.1.1) (2024-03-15)
 
 - Creating a new version so I can change the hex package description 😂
