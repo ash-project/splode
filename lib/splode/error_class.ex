@@ -1,6 +1,38 @@
 defmodule Splode.ErrorClass do
   @moduledoc "Tools for working with error classes"
 
+  defmacro __using__(opts) do
+    quote bind_quoted: [opts: opts] do
+      opts =
+        Keyword.update(opts, :fields, [errors: []], fn fields ->
+          has_error_fields? =
+            Enum.any?(fields, fn
+              :errors ->
+                true
+
+              {:errors, _} ->
+                true
+
+              _ ->
+                false
+            end)
+
+          if has_error_fields? do
+            fields
+          else
+            fields ++ [errors: []]
+          end
+        end)
+        |> Keyword.put(:error_class?, true)
+
+      use Splode.Error, opts
+
+      def message(%{errors: errors}) do
+        Splode.ErrorClass.error_messages(errors)
+      end
+    end
+  end
+
   @doc "Creates a long form composite error message for a list of errors"
   def error_messages(errors, opts \\ []) do
     custom_message = opts[:custom_message]

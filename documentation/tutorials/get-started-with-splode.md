@@ -17,29 +17,21 @@ end
 
 # Error classes are splode errors with an `errors` key.
 defmodule MyApp.Errors.Invalid do
-  use Splode.Error, fields: [:errors], class: :invalid
-
-  def splode_message(%{errors: errors}) do
-    Splode.ErrorClass.error_messages(errors)
-  end
+  use Splode.ErrorClass, class: :invalid
 end
 
 # You will want to define an unknown error class,
 # otherwise splode will use its own
 defmodule MyApp.Errors.Unknown do
-  use Splode.Error, fields: [:errors], class: :unknown
-
-  def splode_message(%{errors: errors}) do
-    Splode.ErrorClass.error_messages(errors)
-  end
+  use Splode.ErrorClass, class: :unknown
 end
 
 # This fallback exception will be used for unknown errors
 defmodule MyApp.Errors.Unknown.Unknown do
-  use Splode.Error, fields: [:error], class: :unknown
+  use Splode.Error, class: :unknown
 
   # your unknown message should have an `error` key
-  def splode_message(%{error: error}) do
+  def message(%{error: error}) do
     if is_binary(error) do
       to_string(error)
     else
@@ -53,7 +45,7 @@ end
 defmodule MyApp.Errors.InvalidArgument do
   use Splode.Error, fields: [:name, :message], class: :invalid
 
-  def splode_message(%{name: name, message: message}) do
+  def message(%{name: name, message: message}) do
     "Invalid argument #{name}: #{message}"
   end
 end

@@ -139,10 +139,27 @@ defmodule Splode do
 
       def splode_error?(_), do: false
 
+      def splode_error?(%struct{splode: splode}, splode) do
+        struct.splode_error?()
+      rescue
+        _ ->
+          false
+      end
+
+      def splode_error?(%struct{splode: nil}, _splode) do
+        struct.splode_error?()
+      rescue
+        _ ->
+          false
+      end
+
+      def splode_error?(_, _), do: false
+
       @impl true
       def to_class(value, opts \\ [])
 
-      def to_class(%struct{errors: [error]} = class, _opts) when struct in @class_modules do
+      def to_class(%struct{errors: [error]} = class, _opts)
+          when struct in @class_modules do
         if error.class == :special do
           error
         else
@@ -152,7 +169,7 @@ defmodule Splode do
 
       def to_class(value, opts) when not is_list(value) do
         if splode_error?(value) && value.class == :special do
-          value
+          Map.put(value, :splode, __MODULE__)
         else
           to_class([value], opts)
         end
@@ -174,14 +191,18 @@ defmodule Splode do
           |> flatten_preserving_keywords()
           |> Enum.uniq_by(&clear_stacktraces/1)
           |> Enum.map(fn value ->
-            if splode_error?(value) do
-              value
+            if splode_error?(value, __MODULE__) do
+              Map.put(value, :splode, __MODULE__)
             else
               exception_opts =
                 if opts[:stacktrace] do
-                  [error: value, stacktrace: %Splode.Stacktrace{stacktrace: opts[:stacktrace]}]
+                  [
+                    error: value,
+                    stacktrace: %Splode.Stacktrace{stacktrace: opts[:stacktrace]},
+                    splode: __MODULE__
+                  ]
                 else
-                  [error: value]
+                  [error: value, splode: __MODULE__]
                 end
 
               @unknown_error.exception(exception_opts)
@@ -189,11 +210,12 @@ defmodule Splode do
           end)
           |> choose_error()
           |> accumulate_bread_crumbs(opts[:bread_crumbs])
+          |> Map.put(:splode, __MODULE__)
         end
       end
 
       defp choose_error([]) do
-        @error_classes[:unknown].exception([])
+        @error_classes[:unknown].exception(splode: __MODULE__)
       end
 
       defp choose_error(errors) do
@@ -211,7 +233,7 @@ defmodule Splode do
         if parent_error_module == error.__struct__ do
           %{error | errors: (error.errors || []) ++ other_errors}
         else
-          parent_error_module.exception(errors: errors)
+          parent_error_module.exception(errors: errors, splode: __MODULE__)
         end
       end
 
@@ -224,6 +246,7 @@ defmodule Splode do
           |> Keyword.take([:error, :vars])
           |> Keyword.put_new(:error, list[:message])
           |> Keyword.put_new(:value, list)
+          |> Keyword.put(:splode, __MODULE__)
           |> @unknown_error.exception()
           |> add_stacktrace(opts[:stacktrace])
           |> accumulate_bread_crumbs(opts[:bread_crumbs])
@@ -239,7 +262,7 @@ defmodule Splode do
       end
 
       def to_error(error, opts) when is_binary(error) do
-        [error: error]
+        [error: error, splode: __MODULE__]
         |> @unknown_error.exception()
         |> Map.put(:stacktrace, nil)
         |> add_stacktrace(opts[:stacktrace])
@@ -248,20 +271,21 @@ defmodule Splode do
 
       def to_error(other, opts) do
         cond do
-          splode_error?(other) ->
+          splode_error?(other, __MODULE__) ->
             other
+            |> Map.put(:splode, __MODULE__)
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
 
           is_exception(other) ->
-            [error: Exception.format(:error, other)]
+            [error: Exception.format(:error, other), splode: __MODULE__]
             |> @unknown_error.exception()
             |> Map.put(:stacktrace, nil)
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
 
           true ->
-            [error: "unknown error: #{inspect(other)}"]
+            [error: "unknown error: #{inspect(other)}", splode: __MODULE__]
             |> @unknown_error.exception()
             |> Map.put(:stacktrace, nil)
             |> add_stacktrace(opts[:stacktrace])

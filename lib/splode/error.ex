@@ -8,7 +8,7 @@ defmodule Splode.Error do
   defmodule MyApp.Errors.InvalidArgument do
     use Splode.Error, fields: [:name, :message], class: :invalid
 
-    def splode_message(%{name: name, message: message}) do
+    def message(%{name: name, message: message}) do
       "Invalid argument \#{name}: \#{message}"
     end
   end
@@ -16,7 +16,7 @@ defmodule Splode.Error do
   """
   @callback splode_error?() :: boolean()
   @callback from_json(map) :: struct()
-  @callback splode_message(struct()) :: String.t()
+  @callback error_class?() :: boolean()
   @type t :: Exception.t()
 
   @doc false
@@ -28,8 +28,9 @@ defmodule Splode.Error do
   end
 
   defmacro __using__(opts) do
-    quote generated: true, bind_quoted: [opts: opts] do
+    quote generated: true, bind_quoted: [opts: opts, mod: __MODULE__] do
       @behaviour Splode.Error
+      @error_class !!opts[:error_class?]
 
       if !opts[:class] do
         raise "Must provide an error class for a splode error, i.e `use Splode.Error, class: :invalid`"
@@ -37,6 +38,7 @@ defmodule Splode.Error do
 
       defexception List.wrap(opts[:fields]) ++
                      [
+                       splode: nil,
                        bread_crumbs: [],
                        vars: [],
                        path: [],
@@ -44,43 +46,47 @@ defmodule Splode.Error do
                        class: opts[:class]
                      ]
 
+      @before_compile mod
+
       @impl Splode.Error
       def splode_error?, do: true
 
-      @impl Exception
-      def message(%{vars: vars} = exception) do
-        string = splode_message(exception)
+      @impl Splode.Error
+      def error_class?, do: @error_class
 
-        string =
-          case Splode.ErrorClass.bread_crumb(exception.bread_crumbs) do
-            "" ->
-              string
-
-            context ->
-              context <> "\n" <> string
-          end
-
-        Enum.reduce(List.wrap(vars), string, fn {key, value}, acc ->
-          if String.contains?(acc, "%{#{key}}") do
-            String.replace(acc, "%{#{key}}", to_string(value))
-          else
-            acc
-          end
-        end)
-      end
+      def exception, do: exception([])
 
       @impl Exception
       def exception(opts) do
-        opts =
-          if is_nil(opts[:stacktrace]) do
-            {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+        if @error_class && match?([%error{class: :special} = special], opts[:errors]) do
+          special_error = Enum.at(opts[:errors], 0)
 
-            Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+          if special_error.__struct__.splode_error?() do
+            special_error
           else
-            opts
-          end
+            opts =
+              if is_nil(opts[:stacktrace]) do
+                {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
 
-        super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
+                Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+              else
+                opts
+              end
+
+            super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
+          end
+        else
+          opts =
+            if is_nil(opts[:stacktrace]) do
+              {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+
+              Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+            else
+              opts
+            end
+
+          super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
+        end
       end
 
       @impl Splode.Error
@@ -94,6 +100,36 @@ defmodule Splode.Error do
       end
 
       defoverridable exception: 1, from_json: 1
+    end
+  end
+
+  defmacro __before_compile__(env) do
+    if Module.defines?(env.module, {:message, 1}, :def) do
+      quote generated: true do
+        defoverridable message: 1
+
+        @impl true
+        def message(%{vars: vars} = exception) do
+          string = super(exception)
+
+          string =
+            case Splode.ErrorClass.bread_crumb(exception.bread_crumbs) do
+              "" ->
+                string
+
+              context ->
+                context <> "\n" <> string
+            end
+
+          Enum.reduce(List.wrap(vars), string, fn {key, value}, acc ->
+            if String.contains?(acc, "%{#{key}}") do
+              String.replace(acc, "%{#{key}}", to_string(value))
+            else
+              acc
+            end
+          end)
+        end
+      end
     end
   end
 
