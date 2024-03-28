@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.1](https://github.com/ash-project/splode/compare/v0.2.0...v0.2.1) (2024-03-28)
+
+
+
+
+### Bug Fixes:
+
+* properly produce unknown error on empty list provided
+
 ## [v0.2.0](https://github.com/ash-project/splode/compare/v0.1.1...v0.2.0) (2024-03-18)
 ### Breaking Changes:
 
