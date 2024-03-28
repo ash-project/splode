@@ -177,7 +177,7 @@ defmodule Splode do
 
       def to_class(values, opts) when is_list(values) do
         errors =
-          if Keyword.keyword?(values) do
+          if Keyword.keyword?(values) && values != [] do
             [to_error(values, Keyword.delete(opts, :bread_crumbs))]
           else
             Enum.map(values, &to_error(&1, Keyword.delete(opts, :bread_crumbs)))
