@@ -1,7 +1,7 @@
 defmodule Splode.MixProject do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.2.2"
 
   @description """
   Splode helps you deal with errors and exceptions in your application that are aggregatable and consistent.
