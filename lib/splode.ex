@@ -431,6 +431,8 @@ defmodule Splode do
           handled
         end
       end
+
+      defoverridable set_path: 2
     end
   end
 end
