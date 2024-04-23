@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.3](https://github.com/ash-project/splode/compare/v0.2.2...v0.2.3) (2024-04-23)
+
+
+
+
+### Improvements:
+
+* make `set_path/2` overridable
+
 ## [v0.2.2](https://github.com/ash-project/splode/compare/v0.2.1...v0.2.2) (2024-04-05)
 
 
