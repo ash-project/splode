@@ -123,7 +123,7 @@ defmodule Splode.Error do
 
           Enum.reduce(List.wrap(vars), string, fn {key, value}, acc ->
             if String.contains?(acc, "%{#{key}}") do
-              String.replace(acc, "%{#{key}}", to_string(value))
+              String.replace(acc, "%{#{key}}", inspect(value))
             else
               acc
             end
