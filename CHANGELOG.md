@@ -5,6 +5,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.4](https://github.com/ash-project/splode/compare/v0.2.3...v0.2.4) (2024-05-02)
+
+
+
+
+### Bug Fixes:
+
+* properly return unwrapped list of errors when `:special` class is used
+
+* Splode.Error.message/1 (#7)
+
 ## [v0.2.3](https://github.com/ash-project/splode/compare/v0.2.2...v0.2.3) (2024-04-23)
 
 
