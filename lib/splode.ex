@@ -185,7 +185,7 @@ defmodule Splode do
 
         if Enum.count_until(errors, 2) == 1 &&
              Enum.at(errors, 0).class == :special do
-          [List.first(errors)]
+          List.first(errors)
         else
           values
           |> flatten_preserving_keywords()
