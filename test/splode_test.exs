@@ -191,7 +191,8 @@ defmodule SplodeTest do
 
       interaction_error = ContainerWithoutMergeWith.to_class([hw_error, example_container_error])
 
-      assert %{errors: [%SplodeTest.ContainerUnknownError{}, %SplodeTest.ContainerUnknownError{}]} = interaction_error
+      assert %{errors: [%SplodeTest.ContainerUnknownError{}, %SplodeTest.ContainerUnknownError{}]} =
+               interaction_error
     end
   end
 

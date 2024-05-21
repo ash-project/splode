@@ -194,7 +194,7 @@ defmodule Splode do
           end
 
         if Enum.count_until(errors, 2) == 1 &&
-          (Enum.at(errors, 0).class == :special || Enum.at(errors, 0).__struct__.error_class?()) do
+             (Enum.at(errors, 0).class == :special || Enum.at(errors, 0).__struct__.error_class?()) do
           List.first(errors)
         else
           errors
