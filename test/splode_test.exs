@@ -76,7 +76,9 @@ defmodule SplodeTest do
     @moduledoc false
     use Splode,
       error_classes: [
-        interaction: ContainerErrorClass
+        interaction: ContainerErrorClass,
+        hw: HwError,
+        sw: SwError
       ],
       unknown_error: ContainerUnknownError,
       merge_with: [SystemError]
@@ -105,46 +107,6 @@ defmodule SplodeTest do
     assert SystemError.splode_error?(DivByZeroException.exception())
     assert SystemError.splode_error?(NullReferenceException.exception())
     assert SystemError.splode_error?(UnknownError.exception())
-  end
-
-  test "merge_error?" do
-    assert SystemError.merge_error?(HwError.exception(splode: SystemError))
-    assert SystemError.merge_error?(SwError.exception(splode: SystemError))
-
-    assert SystemError.merge_error?(CpuError.exception(splode: SystemError))
-    assert SystemError.merge_error?(RamError.exception(splode: SystemError))
-    assert SystemError.merge_error?(DivByZeroException.exception(splode: SystemError))
-    assert SystemError.merge_error?(NullReferenceException.exception(splode: SystemError))
-    assert SystemError.merge_error?(UnknownError.exception(splode: SystemError))
-
-    assert ContainerError.merge_error?(ContainerErrorClass.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(HwError.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(SwError.exception(splode: ContainerError))
-
-    assert ContainerError.merge_error?(CpuError.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(RamError.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(DivByZeroException.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(NullReferenceException.exception(splode: ContainerError))
-    assert ContainerError.merge_error?(UnknownError.exception(splode: ContainerError))
-
-    assert ContainerWithoutMergeWith.merge_error?(
-             ContainerErrorClass.exception(splode: ContainerWithoutMergeWith)
-           )
-
-    refute ContainerWithoutMergeWith.merge_error?(HwError.exception(splode: SystemError))
-    refute ContainerWithoutMergeWith.merge_error?(SwError.exception(splode: SystemError))
-    refute ContainerWithoutMergeWith.merge_error?(CpuError.exception(splode: SystemError))
-    refute ContainerWithoutMergeWith.merge_error?(RamError.exception(splode: SystemError))
-
-    refute ContainerWithoutMergeWith.merge_error?(
-             DivByZeroException.exception(splode: SystemError)
-           )
-
-    refute ContainerWithoutMergeWith.merge_error?(
-             NullReferenceException.exception(splode: SystemError)
-           )
-
-    refute ContainerWithoutMergeWith.merge_error?(UnknownError.exception(splode: SystemError))
   end
 
   test "set_path" do
@@ -215,40 +177,9 @@ defmodule SplodeTest do
     } do
       hw_error = [cpu, ram] |> SystemError.to_class()
 
-      container_unknown_error =
-        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
-
-      interaction_error =
-        ContainerErrorClass.exception(errors: [container_unknown_error, example_container_error])
-        |> ContainerError.to_error()
+      interaction_error = ContainerError.to_class([hw_error, example_container_error])
 
       assert %{errors: [^cpu, ^ram, ^example_container_error]} = interaction_error
-    end
-
-    test "to_error flattens multiple levels", %{
-      cpu: cpu,
-      ram: ram,
-      example_container_error: example_container_error
-    } do
-      hw_error = [cpu, ram] |> SystemError.to_class()
-
-      container_unknown_error =
-        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
-
-      interaction_error =
-        ContainerErrorClass.exception(
-          errors: [container_unknown_error, example_container_error],
-          splode: ContainerError
-        )
-
-      container_unknown_error2 =
-        ContainerUnknownError.exception(error: interaction_error, splode: ContainerError)
-
-      interaction_error2 =
-        ContainerErrorClass.exception(errors: [container_unknown_error2])
-        |> ContainerError.to_error()
-
-      assert %{errors: [^cpu, ^ram, ^example_container_error]} = interaction_error2
     end
 
     test "to_error doesn't flatten nested errors when not included in merge_with", %{
@@ -256,18 +187,11 @@ defmodule SplodeTest do
       ram: ram,
       example_container_error: example_container_error
     } do
-      hw_error =
-        [cpu, ram]
-        |> SystemError.to_class()
+      hw_error = [cpu, ram] |> SystemError.to_class()
 
-      another_unknown_error =
-        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
+      interaction_error = ContainerWithoutMergeWith.to_class([hw_error, example_container_error])
 
-      interaction_error =
-        ContainerErrorClass.exception(errors: [another_unknown_error, example_container_error])
-        |> ContainerWithoutMergeWith.to_error()
-
-      assert %{errors: [^another_unknown_error, ^example_container_error]} = interaction_error
+      assert %{errors: [%SplodeTest.ContainerUnknownError{}, %SplodeTest.ContainerUnknownError{}]} = interaction_error
     end
   end
 

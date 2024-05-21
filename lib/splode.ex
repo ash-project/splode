@@ -57,7 +57,7 @@ defmodule Splode do
                          "must supply the `unknown_error` option, pointing at a splode error to use in situations where we cannot convert an error."
                        )
 
-      @merge_with List.wrap(opts[:merge_with]) || []
+      @merge_with List.wrap(opts[:merge_with])
 
       if Enum.empty?(opts[:error_classes]) do
         raise ArgumentError,
@@ -157,10 +157,6 @@ defmodule Splode do
 
       def splode_error?(_, _), do: false
 
-      def merge_error?(%struct{splode: splode} = a) do
-        Enum.member?([__MODULE__ | @merge_with], splode)
-      end
-
       @impl true
       def to_class(value, opts \\ [])
 
@@ -186,19 +182,27 @@ defmodule Splode do
           if Keyword.keyword?(values) && values != [] do
             [to_error(values, Keyword.delete(opts, :bread_crumbs))]
           else
-            Enum.map(values, &to_error(&1, Keyword.delete(opts, :bread_crumbs)))
+            values
+            |> flatten_preserving_keywords()
+            |> Enum.map(fn error ->
+              if Enum.any?([__MODULE__ | @merge_with], &splode_error?(error, &1)) do
+                error
+              else
+                to_error(error, Keyword.delete(opts, :bread_crumbs))
+              end
+            end)
           end
 
         if Enum.count_until(errors, 2) == 1 &&
-             Enum.at(errors, 0).class == :special do
+          (Enum.at(errors, 0).class == :special || Enum.at(errors, 0).__struct__.error_class?()) do
           List.first(errors)
         else
-          values
-          |> flatten_preserving_keywords()
+          errors
+          |> flatten_errors()
           |> Enum.uniq_by(&clear_stacktraces/1)
           |> Enum.map(fn value ->
-            if splode_error?(value, __MODULE__) do
-              Map.put(value, :splode, __MODULE__)
+            if Enum.any?([__MODULE__ | @merge_with], &splode_error?(value, &1)) do
+              Map.put(value, :splode, value.splode || __MODULE__)
             else
               exception_opts =
                 if opts[:stacktrace] do
@@ -225,16 +229,17 @@ defmodule Splode do
       end
 
       defp choose_error(errors) do
-        errors = Enum.map(errors, &to_error/1)
-
         [error | other_errors] =
           Enum.sort_by(errors, fn error ->
             # the second element here sorts errors that are already parent errors
-            {Map.get(@error_class_indices, error.class),
+            {Map.get(@error_class_indices, error.class) ||
+               Map.get(@error_class_indices, :unknown),
              @error_classes[error.class] != error.__struct__}
           end)
 
-        parent_error_module = @error_classes[error.class]
+        parent_error_module =
+          @error_classes[error.class] || Keyword.get(@error_classes, :unknown) ||
+            Splode.Error.Unknown
 
         if parent_error_module == error.__struct__ do
           %{error | errors: (error.errors || []) ++ other_errors}
@@ -275,36 +280,17 @@ defmodule Splode do
         |> accumulate_bread_crumbs(opts[:bread_crumbs])
       end
 
-      defp merge_errors(%{errors: errors} = error) do
-        errors
-        |> Enum.flat_map(fn error ->
-          with true <- merge_error?(error),
-               %{error: %{errors: _errors} = inner_error} <- error,
-               %{errors: errors} <- merge_errors(inner_error) do
-            errors
-          else
-            _ -> [error]
-          end
-        end)
-        |> then(&Map.put(error, :errors, &1))
-      end
-
-      defp merge_errors(%{} = error) do
-        error
-      end
-
       def to_error(other, opts) do
         cond do
-          splode_error?(other, __MODULE__) ->
-            merge_errors(other)
-            |> Map.put(:splode, __MODULE__)
+          Enum.any?([__MODULE__ | @merge_with], &splode_error?(other, &1)) ->
+            other
+            |> Map.put(:splode, other.splode || __MODULE__)
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
 
           is_exception(other) ->
             [error: Exception.format(:error, other), splode: __MODULE__]
             |> @unknown_error.exception()
-            |> Map.put(:stacktrace, nil)
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
 
@@ -315,6 +301,22 @@ defmodule Splode do
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
         end
+      end
+
+      defp flatten_errors(errors) do
+        errors
+        |> Enum.flat_map(&List.wrap/1)
+        |> Enum.flat_map(fn error ->
+          if Enum.any?([__MODULE__ | @merge_with], &splode_error?(error, &1)) do
+            if error.__struct__.error_class?() do
+              flatten_errors(error.errors)
+            else
+              [error]
+            end
+          else
+            [error]
+          end
+        end)
       end
 
       defp flatten_preserving_keywords(list) do
