@@ -13,6 +13,11 @@ defmodule SplodeTest do
     use Splode.ErrorClass, class: :sw
   end
 
+  defmodule ContainerErrorClass do
+    @moduledoc false
+    use Splode.ErrorClass, class: :ui
+  end
+
   # Errors
 
   defmodule CpuError do
@@ -45,6 +50,18 @@ defmodule SplodeTest do
     def message(err), do: err |> inspect()
   end
 
+  defmodule ExampleContainerError do
+    @moduledoc false
+    use Splode.Error, fields: [:description], class: :ui
+    def message(err), do: err |> inspect()
+  end
+
+  defmodule ContainerUnknownError do
+    @moduledoc false
+    use Splode.Error, fields: [:error], class: :unknown
+    def message(err), do: err |> inspect()
+  end
+
   defmodule SystemError do
     @moduledoc false
     use Splode,
@@ -53,6 +70,26 @@ defmodule SplodeTest do
         sw: SwError
       ],
       unknown_error: UnknownError
+  end
+
+  defmodule ContainerError do
+    @moduledoc false
+    use Splode,
+      error_classes: [
+        interaction: ContainerErrorClass
+      ],
+      unknown_error: ContainerUnknownError,
+      merge_with: [SystemError]
+  end
+
+  defmodule ContainerWithoutMergeWith do
+    @moduledoc false
+    use Splode,
+      error_classes: [
+        interaction: ContainerErrorClass
+      ],
+      unknown_error: ContainerUnknownError,
+      merge_with: []
   end
 
   test "splode_error?" do
@@ -70,6 +107,46 @@ defmodule SplodeTest do
     assert SystemError.splode_error?(UnknownError.exception())
   end
 
+  test "merge_error?" do
+    assert SystemError.merge_error?(HwError.exception(splode: SystemError))
+    assert SystemError.merge_error?(SwError.exception(splode: SystemError))
+
+    assert SystemError.merge_error?(CpuError.exception(splode: SystemError))
+    assert SystemError.merge_error?(RamError.exception(splode: SystemError))
+    assert SystemError.merge_error?(DivByZeroException.exception(splode: SystemError))
+    assert SystemError.merge_error?(NullReferenceException.exception(splode: SystemError))
+    assert SystemError.merge_error?(UnknownError.exception(splode: SystemError))
+
+    assert ContainerError.merge_error?(ContainerErrorClass.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(HwError.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(SwError.exception(splode: ContainerError))
+
+    assert ContainerError.merge_error?(CpuError.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(RamError.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(DivByZeroException.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(NullReferenceException.exception(splode: ContainerError))
+    assert ContainerError.merge_error?(UnknownError.exception(splode: ContainerError))
+
+    assert ContainerWithoutMergeWith.merge_error?(
+             ContainerErrorClass.exception(splode: ContainerWithoutMergeWith)
+           )
+
+    refute ContainerWithoutMergeWith.merge_error?(HwError.exception(splode: SystemError))
+    refute ContainerWithoutMergeWith.merge_error?(SwError.exception(splode: SystemError))
+    refute ContainerWithoutMergeWith.merge_error?(CpuError.exception(splode: SystemError))
+    refute ContainerWithoutMergeWith.merge_error?(RamError.exception(splode: SystemError))
+
+    refute ContainerWithoutMergeWith.merge_error?(
+             DivByZeroException.exception(splode: SystemError)
+           )
+
+    refute ContainerWithoutMergeWith.merge_error?(
+             NullReferenceException.exception(splode: SystemError)
+           )
+
+    refute ContainerWithoutMergeWith.merge_error?(UnknownError.exception(splode: SystemError))
+  end
+
   test "set_path" do
     null = NullReferenceException.exception(path: [:a])
     null = SystemError.set_path(null, :b)
@@ -83,8 +160,15 @@ defmodule SplodeTest do
       ram = RamError.exception() |> SystemError.to_error()
       div = DivByZeroException.exception() |> SystemError.to_error()
       null = NullReferenceException.exception() |> SystemError.to_error()
+      example_container_error = ExampleContainerError.exception() |> ContainerError.to_error()
 
-      %{cpu: cpu, ram: ram, div: div, null: null}
+      %{
+        cpu: cpu,
+        ram: ram,
+        div: div,
+        null: null,
+        example_container_error: example_container_error
+      }
     end
 
     test "wraps errors in error class with same class", %{
@@ -122,6 +206,68 @@ defmodule SplodeTest do
         [cpu, ram, div, null] |> Enum.shuffle() |> Enum.take(2) |> SystemError.to_class()
 
       assert error == error |> SystemError.to_class()
+    end
+
+    test "to_error flattens nested errors when included in merge_with", %{
+      cpu: cpu,
+      ram: ram,
+      example_container_error: example_container_error
+    } do
+      hw_error = [cpu, ram] |> SystemError.to_class()
+
+      container_unknown_error =
+        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
+
+      interaction_error =
+        ContainerErrorClass.exception(errors: [container_unknown_error, example_container_error])
+        |> ContainerError.to_error()
+
+      assert %{errors: [^cpu, ^ram, ^example_container_error]} = interaction_error
+    end
+
+    test "to_error flattens multiple levels", %{
+      cpu: cpu,
+      ram: ram,
+      example_container_error: example_container_error
+    } do
+      hw_error = [cpu, ram] |> SystemError.to_class()
+
+      container_unknown_error =
+        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
+
+      interaction_error =
+        ContainerErrorClass.exception(
+          errors: [container_unknown_error, example_container_error],
+          splode: ContainerError
+        )
+
+      container_unknown_error2 =
+        ContainerUnknownError.exception(error: interaction_error, splode: ContainerError)
+
+      interaction_error2 =
+        ContainerErrorClass.exception(errors: [container_unknown_error2])
+        |> ContainerError.to_error()
+
+      assert %{errors: [^cpu, ^ram, ^example_container_error]} = interaction_error2
+    end
+
+    test "to_error doesn't flatten nested errors when not included in merge_with", %{
+      cpu: cpu,
+      ram: ram,
+      example_container_error: example_container_error
+    } do
+      hw_error =
+        [cpu, ram]
+        |> SystemError.to_class()
+
+      another_unknown_error =
+        ContainerUnknownError.exception(error: hw_error, splode: SystemError)
+
+      interaction_error =
+        ContainerErrorClass.exception(errors: [another_unknown_error, example_container_error])
+        |> ContainerWithoutMergeWith.to_error()
+
+      assert %{errors: [^another_unknown_error, ^example_container_error]} = interaction_error
     end
   end
 

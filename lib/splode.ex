@@ -57,6 +57,8 @@ defmodule Splode do
                          "must supply the `unknown_error` option, pointing at a splode error to use in situations where we cannot convert an error."
                        )
 
+      @merge_with List.wrap(opts[:merge_with]) || []
+
       if Enum.empty?(opts[:error_classes]) do
         raise ArgumentError,
               "must supply at least one error class to `use Splode`, via `use Splode, error_classes: [class: ModuleForClass]`"
@@ -154,6 +156,10 @@ defmodule Splode do
       end
 
       def splode_error?(_, _), do: false
+
+      def merge_error?(%struct{splode: splode} = a) do
+        Enum.member?([__MODULE__ | @merge_with], splode)
+      end
 
       @impl true
       def to_class(value, opts \\ [])
@@ -269,10 +275,28 @@ defmodule Splode do
         |> accumulate_bread_crumbs(opts[:bread_crumbs])
       end
 
+      defp merge_errors(%{errors: errors} = error) do
+        errors
+        |> Enum.flat_map(fn error ->
+          with true <- merge_error?(error),
+               %{error: %{errors: _errors} = inner_error} <- error,
+               %{errors: errors} <- merge_errors(inner_error) do
+            errors
+          else
+            _ -> [error]
+          end
+        end)
+        |> then(&Map.put(error, :errors, &1))
+      end
+
+      defp merge_errors(%{} = error) do
+        error
+      end
+
       def to_error(other, opts) do
         cond do
           splode_error?(other, __MODULE__) ->
-            other
+            merge_errors(other)
             |> Map.put(:splode, __MODULE__)
             |> add_stacktrace(opts[:stacktrace])
             |> accumulate_bread_crumbs(opts[:bread_crumbs])
