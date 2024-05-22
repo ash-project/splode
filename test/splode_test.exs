@@ -13,6 +13,11 @@ defmodule SplodeTest do
     use Splode.ErrorClass, class: :sw
   end
 
+  defmodule ContainerErrorClass do
+    @moduledoc false
+    use Splode.ErrorClass, class: :ui
+  end
+
   # Errors
 
   defmodule CpuError do
@@ -45,6 +50,18 @@ defmodule SplodeTest do
     def message(err), do: err |> inspect()
   end
 
+  defmodule ExampleContainerError do
+    @moduledoc false
+    use Splode.Error, fields: [:description], class: :ui
+    def message(err), do: err |> inspect()
+  end
+
+  defmodule ContainerUnknownError do
+    @moduledoc false
+    use Splode.Error, fields: [:error], class: :unknown
+    def message(err), do: err |> inspect()
+  end
+
   defmodule SystemError do
     @moduledoc false
     use Splode,
@@ -53,6 +70,28 @@ defmodule SplodeTest do
         sw: SwError
       ],
       unknown_error: UnknownError
+  end
+
+  defmodule ContainerError do
+    @moduledoc false
+    use Splode,
+      error_classes: [
+        interaction: ContainerErrorClass,
+        hw: HwError,
+        sw: SwError
+      ],
+      unknown_error: ContainerUnknownError,
+      merge_with: [SystemError]
+  end
+
+  defmodule ContainerWithoutMergeWith do
+    @moduledoc false
+    use Splode,
+      error_classes: [
+        interaction: ContainerErrorClass
+      ],
+      unknown_error: ContainerUnknownError,
+      merge_with: []
   end
 
   test "splode_error?" do
@@ -83,8 +122,15 @@ defmodule SplodeTest do
       ram = RamError.exception() |> SystemError.to_error()
       div = DivByZeroException.exception() |> SystemError.to_error()
       null = NullReferenceException.exception() |> SystemError.to_error()
+      example_container_error = ExampleContainerError.exception() |> ContainerError.to_error()
 
-      %{cpu: cpu, ram: ram, div: div, null: null}
+      %{
+        cpu: cpu,
+        ram: ram,
+        div: div,
+        null: null,
+        example_container_error: example_container_error
+      }
     end
 
     test "wraps errors in error class with same class", %{
@@ -122,6 +168,31 @@ defmodule SplodeTest do
         [cpu, ram, div, null] |> Enum.shuffle() |> Enum.take(2) |> SystemError.to_class()
 
       assert error == error |> SystemError.to_class()
+    end
+
+    test "to_error flattens nested errors when included in merge_with", %{
+      cpu: cpu,
+      ram: ram,
+      example_container_error: example_container_error
+    } do
+      hw_error = [cpu, ram] |> SystemError.to_class()
+
+      interaction_error = ContainerError.to_class([hw_error, example_container_error])
+
+      assert %{errors: [^cpu, ^ram, ^example_container_error]} = interaction_error
+    end
+
+    test "to_error doesn't flatten nested errors when not included in merge_with", %{
+      cpu: cpu,
+      ram: ram,
+      example_container_error: example_container_error
+    } do
+      hw_error = [cpu, ram] |> SystemError.to_class()
+
+      interaction_error = ContainerWithoutMergeWith.to_class([hw_error, example_container_error])
+
+      assert %{errors: [%SplodeTest.ContainerUnknownError{}, %SplodeTest.ContainerUnknownError{}]} =
+               interaction_error
     end
   end
 
