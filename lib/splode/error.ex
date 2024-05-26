@@ -68,7 +68,9 @@ defmodule Splode.Error do
               if is_nil(opts[:stacktrace]) do
                 {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
 
-                Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+                Keyword.put(opts, :stacktrace, %Splode.Stacktrace{
+                  stacktrace: Enum.drop(stacktrace, 1)
+                })
               else
                 opts
               end
@@ -80,7 +82,9 @@ defmodule Splode.Error do
             if is_nil(opts[:stacktrace]) do
               {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
 
-              Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+              Keyword.put(opts, :stacktrace, %Splode.Stacktrace{
+                stacktrace: Enum.drop(stacktrace, 1)
+              })
             else
               opts
             end
