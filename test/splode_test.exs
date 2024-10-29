@@ -94,6 +94,22 @@ defmodule SplodeTest do
       merge_with: []
   end
 
+  defmodule Example do
+    def function() do
+      {:error, "Error"}
+    end
+
+    def function!() do
+      SystemError.unwrap!(function())
+    end
+  end
+
+  test "splode functions work" do
+    assert_raise SplodeTest.UnknownError, ~r/error: "Error"/, fn ->
+      Example.function!()
+    end
+  end
+
   test "splode_error?" do
     refute SystemError.splode_error?(:error)
     refute SystemError.splode_error?(%{})

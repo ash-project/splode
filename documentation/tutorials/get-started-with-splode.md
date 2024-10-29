@@ -147,15 +147,13 @@ end
 
 # Raising Exceptions
 
-To make a `!` version of a function that returns one of these errors is quite simple:
+To make a `!` version of a function, use `.unwrap!/2` on your splode module.
 
 ```elixir
 def get_user!(user_id) do
-  with {:ok, user} <- get_user(user_id) do
-    {:ok, user}
-  else
-    {:error, error} -> raise MyApp.Errors.to_class(error)
-  end
+  user_id
+  |> get_user()
+  |> MyApp.Errors.unwrap!()
 end
 
 def get_user(user_id) do

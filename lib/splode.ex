@@ -97,6 +97,47 @@ defmodule Splode do
 
       @error_class_indices @error_classes |> Keyword.keys() |> Enum.with_index() |> Enum.into(%{})
 
+      @doc """
+      Raises an error if the result is an error, otherwise returns the result
+
+      Alternatively, you can use the `defsplode` macro, which does this automatically.
+
+      ### Options
+
+      - `:error_opts` - Options to pass to `to_error/2` when converting the returned error
+      - `:unknown_error_opts` - Options to pass to the unknown error if the function returns only `:error`.
+        not necessary if your function always returns `{:error, error}`.
+
+      ### Examples
+
+        def function(arg) do
+          case do_something(arg) do
+            :success -> :ok
+            {:success, result} -> {:ok, result}
+            {:error, error} -> {:error, error}
+          end
+        end
+
+        def function!!(arg) do
+          YourErrors.unwrap!(function(arg))
+        end
+      """
+      def unwrap!(result, opts \\ nil)
+      def unwrap!({:ok, result}, _opts), do: result
+      def unwrap!(:ok, _), do: :ok
+
+      def unwrap!({:error, error}, opts), do: raise(to_error(error, opts[:error_opts] || []))
+
+      def unwrap!(:error, opts),
+        do: raise(@error_classes[:unknown].exception(opts[:unknown_error_opts] || []))
+
+      def unwrap!(other, opts),
+        do:
+          raise(
+            ArgumentError,
+            "Invalid value provided to `splode!/2`:\n\n#{inspect(other)}"
+          )
+
       @impl true
       def set_path(errors, path) when is_list(errors) do
         Enum.map(errors, &set_path(&1, path))
