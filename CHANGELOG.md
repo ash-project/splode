@@ -5,6 +5,17 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.5](https://github.com/ash-project/splode/compare/v0.2.4...v0.2.5) (2024-10-29)
+
+
+
+
+### Improvements:
+
+* support `.unwrap!/2` on generated splode modules
+
+* Don't show `Process.info` in stacktraces. (#10)
+
 ## [v0.2.4](https://github.com/ash-project/splode/compare/v0.2.3...v0.2.4) (2024-05-02)
 
 
