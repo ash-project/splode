@@ -201,12 +201,13 @@ defmodule Splode do
       @impl true
       def to_class(value, opts \\ [])
 
-      def to_class(%struct{errors: [error]} = class, _opts)
+      def to_class(%struct{errors: [error]} = class, opts)
           when struct in @class_modules do
         if error.class == :special do
           error
         else
           class
+          |> accumulate_bread_crumbs(opts[:bread_crumbs] |> IO.inspect())
         end
       end
 
@@ -237,6 +238,7 @@ defmodule Splode do
         if Enum.count_until(errors, 2) == 1 &&
              (Enum.at(errors, 0).class == :special || Enum.at(errors, 0).__struct__.error_class?()) do
           List.first(errors)
+          |> accumulate_bread_crumbs(opts[:bread_crumbs])
         else
           errors
           |> flatten_errors()
@@ -408,8 +410,8 @@ defmodule Splode do
         |> Enum.reduce(error, &accumulate_bread_crumbs(&2, &1))
       end
 
-      defp accumulate_bread_crumbs(%{errors: [_ | _] = errors} = error, bread_crumbs)
-           when is_binary(bread_crumbs) do
+      defp accumulate_bread_crumbs(%module{errors: errors} = error, bread_crumbs)
+           when is_binary(bread_crumbs) and module in @class_modules do
         updated_errors = accumulate_bread_crumbs(errors, bread_crumbs)
 
         add_bread_crumbs(%{error | errors: updated_errors}, bread_crumbs)

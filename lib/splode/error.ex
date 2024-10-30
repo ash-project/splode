@@ -108,7 +108,8 @@ defmodule Splode.Error do
   end
 
   defmacro __before_compile__(env) do
-    if Module.defines?(env.module, {:message, 1}, :def) do
+    if Module.defines?(env.module, {:message, 1}, :def) &&
+         !Module.get_attribute(env.module, :error_class) do
       quote generated: true do
         defoverridable message: 1
 

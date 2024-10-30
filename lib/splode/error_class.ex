@@ -36,10 +36,13 @@ defmodule Splode.ErrorClass do
   @doc "Creates a long form composite error message for a list of errors"
   def error_messages(errors, opts \\ []) do
     custom_message = opts[:custom_message]
+    errors = List.wrap(errors)
+
+    {bread_crumbs, errors} =
+      extract_shared_bread_crumbs(errors)
 
     generic_message =
       errors
-      |> List.wrap()
       |> Enum.group_by(& &1.class)
       |> Enum.map_join("\n\n", fn {class, class_errors} ->
         header = String.capitalize(to_string(class)) <> " Error\n\n"
@@ -57,16 +60,9 @@ defmodule Splode.ErrorClass do
                   "  " <> Exception.format_stacktrace_entry(stack_item)
                 end)
 
-            %{bread_crumbs: bread_crumbs} = class_error when is_list(bread_crumbs) ->
-              if is_exception(class_error) do
-                bread_crumb(class_error.bread_crumbs) <>
-                  "* #{Exception.message(class_error)}\n" <>
-                  path(class_error)
-              else
-              end
-
-            other ->
-              Exception.format(:error, other)
+            class_error ->
+              "* #{Exception.message(class_error)}\n" <>
+                path(class_error)
           end)
       end)
 
@@ -76,11 +72,33 @@ defmodule Splode.ErrorClass do
         |> List.wrap()
         |> Enum.map_join("\n", &"* #{&1}")
 
-      "\n\n" <> custom <> generic_message
+      "\n#{bread_crumb(bread_crumbs)}\n" <> custom <> generic_message
     else
-      generic_message
+      "\n#{bread_crumb(bread_crumbs)}" <>
+        generic_message
     end
   end
+
+  defp extract_shared_bread_crumbs(errors, shared \\ [])
+
+  defp extract_shared_bread_crumbs(
+         [%{bread_crumbs: [first | _rest_crumbs]} | rest] = errors,
+         shared
+       ) do
+    if Enum.any?(rest, fn other_error ->
+         !is_map(other_error) || !Map.has_key?(other_error, :bread_crumbs) ||
+           Enum.at(other_error.bread_crumbs, 0) != first
+       end) do
+      {Enum.reverse(shared), errors}
+    else
+      extract_shared_bread_crumbs(
+        Enum.map(errors, &%{&1 | bread_crumbs: Enum.drop(&1.bread_crumbs, 1)}),
+        [first | shared]
+      )
+    end
+  end
+
+  defp extract_shared_bread_crumbs(errors, bread_crumbs), do: {Enum.reverse(bread_crumbs), errors}
 
   defp path(%{path: path}) when path not in [[], nil] do
     "    at " <> to_path(path) <> "\n"
@@ -112,7 +130,34 @@ defmodule Splode.ErrorClass do
         ""
 
       bread_crumbs ->
-        "Bread Crumbs: " <> Enum.join(bread_crumbs, " > ") <> "\n"
+        "Bread Crumbs:\n" <> join_bread_crumbs(bread_crumbs) <> "\n"
     end
+  end
+
+  defp join_bread_crumbs(bread_crumbs) do
+    Enum.reduce(bread_crumbs, {"", []}, fn bread_crumb, {line, lines} ->
+      case String.length(line) + String.length(bread_crumb) do
+        length when length < 80 ->
+          {line <> "> " <> bread_crumb, lines}
+
+        _ ->
+          {"> " <> bread_crumb, ["  " <> line | lines]}
+      end
+    end)
+    |> then(fn {line, lines} ->
+      lines =
+        case line do
+          "" ->
+            lines
+
+          line ->
+            ["  " <> line | lines]
+        end
+
+      lines
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.join("\n")
+      |> Kernel.<>("\n")
+    end)
   end
 end
