@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.7](https://github.com/ash-project/splode/compare/v0.2.6...v0.2.7) (2024-10-30)
+
+
+
+
+### Bug Fixes:
+
+* remove IO.inspect
+
 ## [v0.2.6](https://github.com/ash-project/splode/compare/v0.2.5...v0.2.6) (2024-10-30)
 
 
