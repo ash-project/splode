@@ -5,6 +5,19 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.6](https://github.com/ash-project/splode/compare/v0.2.5...v0.2.6) (2024-10-30)
+
+
+
+
+### Bug Fixes:
+
+* don't miss adding bread crumbs in specific cases
+
+### Improvements:
+
+* better formatting of bread crumbs
+
 ## [v0.2.5](https://github.com/ash-project/splode/compare/v0.2.4...v0.2.5) (2024-10-29)
 
 
