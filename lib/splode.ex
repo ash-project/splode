@@ -207,7 +207,7 @@ defmodule Splode do
           error
         else
           class
-          |> accumulate_bread_crumbs(opts[:bread_crumbs] |> IO.inspect())
+          |> accumulate_bread_crumbs(opts[:bread_crumbs])
         end
       end
 
