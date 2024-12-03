@@ -1,4 +1,5 @@
 defmodule Splode.ErrorTest do
+  alias Splode.Stacktrace
   use ExUnit.Case
 
   defmodule InvalidAttribute do
@@ -8,5 +9,11 @@ defmodule Splode.ErrorTest do
   test "message" do
     invalid = %InvalidAttribute{message: "must be in %{list}", vars: [list: [:foo, :bar]]}
     assert "must be in [:foo, :bar]" == invalid |> Exception.message()
+  end
+
+  test "stacktrace" do
+    {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+
+    assert %Stacktrace{} = InvalidAttribute.exception(stacktrace: stacktrace).stacktrace
   end
 end
