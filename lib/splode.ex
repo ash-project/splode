@@ -118,7 +118,7 @@ defmodule Splode do
           end
         end
 
-        def function!!(arg) do
+        def function!(arg) do
           YourErrors.unwrap!(function(arg))
         end
       """
