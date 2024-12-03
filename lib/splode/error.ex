@@ -72,7 +72,11 @@ defmodule Splode.Error do
                   stacktrace: Enum.drop(stacktrace, 1)
                 })
               else
-                opts
+                if is_list(opts[:stacktrace]) do
+                  Keyword.update!(opts, :stacktrace, &%Splode.Stacktrace{stacktrace: &1})
+                else
+                  opts
+                end
               end
 
             super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
@@ -86,7 +90,11 @@ defmodule Splode.Error do
                 stacktrace: Enum.drop(stacktrace, 1)
               })
             else
-              opts
+              if is_list(opts[:stacktrace]) do
+                Keyword.update!(opts, :stacktrace, &%Splode.Stacktrace{stacktrace: &1})
+              else
+                opts
+              end
             end
 
           super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
