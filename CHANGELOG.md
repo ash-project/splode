@@ -5,6 +5,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.9](https://github.com/ash-project/splode/compare/v0.2.8...v0.2.9) (2025-02-28)
+
+
+
+
+### Improvements:
+
+* show docs for exception function & keys in doc string
+
 ## [v0.2.8](https://github.com/ash-project/splode/compare/v0.2.7...v0.2.8) (2025-01-27)
 
 
