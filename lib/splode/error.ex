@@ -54,10 +54,26 @@ defmodule Splode.Error do
       @impl Splode.Error
       def error_class?, do: @error_class
 
-      def exception, do: exception([])
+      field_names =
+        Enum.map(List.wrap(opts[:fields]), fn
+          {k, _v} ->
+            k
+
+          k ->
+            k
+        end)
 
       @impl Exception
-      def exception(opts) do
+      @doc """
+      Create an `#{__MODULE__}` without raising it.
+
+
+      ## Keys
+
+      #{Enum.map_join(field_names, "\n", &"- #{inspect(&1)}")}
+      """
+      @spec exception(opts :: Keyword.t()) :: %__MODULE__{}
+      def exception(opts \\ []) do
         if @error_class && match?([%error{class: :special} = special], opts[:errors]) do
           special_error = Enum.at(opts[:errors], 0)
 
