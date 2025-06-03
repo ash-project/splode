@@ -95,11 +95,11 @@ defmodule SplodeTest do
   end
 
   defmodule Example do
-    def function() do
+    def function do
       {:error, "Error"}
     end
 
-    def function!() do
+    def function! do
       SystemError.unwrap!(function())
     end
   end
