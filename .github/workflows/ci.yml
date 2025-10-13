@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Zach Daniel
+#
+# SPDX-License-Identifier: MIT
+
 name: Ash CI
 on:
   push:
@@ -12,5 +16,6 @@ jobs:
     with:
       spark-formatter: false
       spark-cheat-sheets: false
+      reuse: true
     secrets:
       HEX_API_KEY: ${{ secrets.HEX_API_KEY }}

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Zach Daniel
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.ErrorTest do
   alias Splode.Stacktrace
   use ExUnit.Case

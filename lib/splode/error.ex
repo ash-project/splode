@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Zach Daniel
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.Error do
   @moduledoc """
   Use this module to create an aggregatable error.
