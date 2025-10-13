@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Zach Daniel
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.MixProject do
   use Mix.Project
 
@@ -32,15 +36,19 @@ defmodule Splode.MixProject do
 
   defp package do
     [
-      name: :splode,
+      maintainers: [
+        "Zach Daniel <zach@zachdaniel.dev>"
+      ],
       licenses: ["MIT"],
       files: ~w(lib .formatter.exs mix.exs README* LICENSE*
       CHANGELOG* documentation),
       links: %{
-        GitHub: "https://github.com/ash-project/splode",
-        Discord: "https://discord.gg/HTHRaaVPUc",
-        Website: "https://ash-hq.org",
-        Forum: "https://elixirforum.com/c/elixir-framework-forums/ash-framework-forum"
+        "GitHub" => "https://github.com/ash-project/splode",
+        "Changelog" => "https://github.com/ash-project/splode/blob/main/CHANGELOG.md",
+        "Discord" => "https://discord.gg/HTHRaaVPUc",
+        "Website" => "https://ash-hq.org",
+        "Forum" => "https://elixirforum.com/c/elixir-framework-forums/ash-framework-forum",
+        "REUSE Compliance" => "https://api.reuse.software/info/github.com/ash-project/splode"
       }
     ]
   end

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020 Zach Daniel
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.Error.Unknown do
   @moduledoc "The default top level unknown error container"
   use Splode.ErrorClass, class: :unknown
