@@ -12,6 +12,15 @@ See [Conventional Commits](Https://conventionalcommits.org) for commit guideline
 
 <!-- changelog -->
 
+## [v0.2.10](https://github.com/ash-project/splode/compare/v0.2.9...v0.2.10) (2026-01-04)
+
+
+
+
+### Improvements:
+
+* add `error_class?` flag to Splode.ErrorClass structs by Zach Daniel
+
 ## [v0.2.9](https://github.com/ash-project/splode/compare/v0.2.8...v0.2.9) (2025-02-28)
 
 
