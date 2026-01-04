@@ -26,6 +26,7 @@ defmodule Splode.ErrorClass do
           else
             fields ++ [errors: []]
           end
+          |> Keyword.put(:error_class?, true)
         end)
         |> Keyword.put(:error_class?, true)
 
