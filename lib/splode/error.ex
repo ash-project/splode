@@ -84,39 +84,11 @@ defmodule Splode.Error do
           if special_error.__struct__.splode_error?() do
             special_error
           else
-            opts =
-              if is_nil(opts[:stacktrace]) do
-                {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
-
-                Keyword.put(opts, :stacktrace, %Splode.Stacktrace{
-                  stacktrace: Enum.drop(stacktrace, 1)
-                })
-              else
-                if is_list(opts[:stacktrace]) do
-                  Keyword.update!(opts, :stacktrace, &%Splode.Stacktrace{stacktrace: &1})
-                else
-                  opts
-                end
-              end
-
+            opts = Splode.Error.maybe_add_stacktrace(opts)
             super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
           end
         else
-          opts =
-            if is_nil(opts[:stacktrace]) do
-              {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
-
-              Keyword.put(opts, :stacktrace, %Splode.Stacktrace{
-                stacktrace: Enum.drop(stacktrace, 1)
-              })
-            else
-              if is_list(opts[:stacktrace]) do
-                Keyword.update!(opts, :stacktrace, &%Splode.Stacktrace{stacktrace: &1})
-              else
-                opts
-              end
-            end
-
+          opts = Splode.Error.maybe_add_stacktrace(opts)
           super(opts) |> Map.update(:vars, [], &Splode.Error.clean_vars/1)
         end
       end
@@ -173,5 +145,33 @@ defmodule Splode.Error do
 
   def clean_vars(vars) do
     vars |> Kernel.||([]) |> Keyword.drop([:field, :message, :path])
+  end
+
+  @doc false
+  def maybe_add_stacktrace(opts) do
+    if is_nil(opts[:stacktrace]) do
+      {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
+      stacktrace = Enum.drop(stacktrace, 1)
+      stacktrace = filter_stacktrace_from_opts(stacktrace, opts)
+
+      Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+    else
+      if is_list(opts[:stacktrace]) do
+        stacktrace = filter_stacktrace_from_opts(opts[:stacktrace], opts)
+        Keyword.put(opts, :stacktrace, %Splode.Stacktrace{stacktrace: stacktrace})
+      else
+        opts
+      end
+    end
+  end
+
+  defp filter_stacktrace_from_opts(stacktrace, opts) do
+    splode = opts[:splode]
+
+    if splode && function_exported?(splode, :__stacktrace_filters__, 0) do
+      Splode.filter_stacktrace(stacktrace, splode.__stacktrace_filters__())
+    else
+      stacktrace
+    end
   end
 end
