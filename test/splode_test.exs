@@ -227,6 +227,83 @@ defmodule SplodeTest do
     assert %DivByZeroException{} = SystemError.to_error(div_by_zero)
   end
 
+  describe "traverse_errors" do
+    test "returns map of messages grouped by path for a class error" do
+      cpu = CpuError.exception(path: [:cpu]) |> SystemError.to_error()
+      div = DivByZeroException.exception(path: [:div]) |> SystemError.to_error()
+      class_error = SystemError.to_class([cpu, div])
+
+      result = SystemError.traverse_errors(class_error, fn _error -> "oops" end)
+
+      assert result == %{cpu: ["oops"], div: ["oops"]}
+    end
+
+    test "groups multiple errors on the same path" do
+      div1 =
+        DivByZeroException.exception(num: 1, denom: 0, path: [:calc]) |> SystemError.to_error()
+
+      div2 =
+        DivByZeroException.exception(num: 2, denom: 0, path: [:calc]) |> SystemError.to_error()
+
+      class_error = SystemError.to_class([div1, div2])
+
+      result = SystemError.traverse_errors(class_error, fn _error -> "bad" end)
+
+      assert result == %{calc: ["bad", "bad"]}
+    end
+
+    test "produces nested maps for multi-segment paths" do
+      null = NullReferenceException.exception(path: [:user, :name]) |> SystemError.to_error()
+      class_error = SystemError.to_class(null)
+
+      result = SystemError.traverse_errors(class_error, fn _error -> "required" end)
+
+      assert result == %{user: %{name: ["required"]}}
+    end
+
+    test "root-level errors (empty path) are grouped under [] key" do
+      cpu = CpuError.exception(path: []) |> SystemError.to_error()
+      class_error = SystemError.to_class(cpu)
+
+      result = SystemError.traverse_errors(class_error, fn _error -> "root error" end)
+
+      assert result == %{[] => ["root error"]}
+    end
+
+    test "passes the error struct to the function" do
+      div =
+        DivByZeroException.exception(num: 10, denom: 0, path: [:calc]) |> SystemError.to_error()
+
+      class_error = SystemError.to_class(div)
+
+      result =
+        SystemError.traverse_errors(class_error, fn
+          %DivByZeroException{num: n, denom: d} -> "#{n} / #{d}"
+          error -> Exception.message(error)
+        end)
+
+      assert result == %{calc: ["10 / 0"]}
+    end
+
+    test "works directly via Splode.traverse_errors/2" do
+      cpu = CpuError.exception(path: [:cpu]) |> SystemError.to_error()
+      class_error = SystemError.to_class(cpu)
+
+      result = Splode.traverse_errors(class_error, fn _error -> "oops" end)
+
+      assert result == %{cpu: ["oops"]}
+    end
+
+    test "accepts a list of errors" do
+      cpu = CpuError.exception(path: [:cpu]) |> SystemError.to_error()
+      ram = RamError.exception(path: [:ram]) |> SystemError.to_error()
+
+      result = SystemError.traverse_errors([cpu, ram], fn _error -> "oops" end)
+
+      assert result == %{cpu: ["oops"], ram: ["oops"]}
+    end
+  end
+
   test "from_json" do
     div_by_zero =
       SystemError.from_json(DivByZeroException, %{"num" => 10, "denom" => 0})

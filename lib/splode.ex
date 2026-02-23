@@ -55,6 +55,32 @@ defmodule Splode do
   @callback splode_error?(term) :: boolean()
 
   @doc """
+  Traverses errors, calling `fun` for each leaf error, and returns a nested map
+  of results grouped by each error's `path`.
+
+  This is useful for turning a Splode error into a simple, queryable structure
+  for testing or display purposes. The `fun` receives each individual (leaf)
+  error struct and should return a value (typically a formatted string).
+
+  ## Example
+
+      iex> traverse_errors(error, fn error -> Exception.message(error) end)
+      %{name: ["name is required"], email: ["email is invalid"]}
+
+  Errors with nested paths produce nested maps:
+
+      iex> traverse_errors(error, &Exception.message/1)
+      %{user: %{email: ["email is invalid"]}}
+
+  Errors with an empty path (i.e., global/root-level errors) are grouped under
+  the `[]` key.
+  """
+  @callback traverse_errors(
+              Splode.Error.t() | [Splode.Error.t()],
+              (Splode.Error.t() -> term())
+            ) :: map()
+
+  @doc """
   Sets the path on the error or errors
   """
   @callback set_path(Splode.Error.t() | [Splode.Error.t()], term | list(term)) ::
@@ -91,6 +117,52 @@ defmodule Splode do
     Agent,
     GenServer
   ]
+
+  @doc """
+  Traverses errors, calling `fun` for each leaf error, and returns a nested map
+  of results grouped by each error's `path`.
+
+  Handles error class structs (which contain nested `errors` lists) by
+  recursively descending into them. Leaf errors are passed to `fun` and their
+  return values are collected into a list at the appropriate path key.
+
+  Errors with an empty path are grouped under the `[]` key.
+
+  ## Example
+
+      Splode.traverse_errors(error, fn error -> Exception.message(error) end)
+      #=> %{name: ["name is required"], email: ["email is invalid"]}
+  """
+  def traverse_errors(error_or_errors, fun) when is_function(fun, 1) do
+    error_or_errors
+    |> List.wrap()
+    |> do_traverse_errors(fun, %{})
+  end
+
+  defp do_traverse_errors([], _fun, acc), do: acc
+
+  defp do_traverse_errors([error | rest], fun, acc) do
+    acc =
+      if error.__struct__.error_class?() do
+        do_traverse_errors(List.wrap(error.errors), fun, acc)
+      else
+        put_traverse_path(acc, List.wrap(error.path), fun.(error))
+      end
+
+    do_traverse_errors(rest, fun, acc)
+  end
+
+  defp put_traverse_path(map, [], value) do
+    Map.update(map, [], [value], &(&1 ++ [value]))
+  end
+
+  defp put_traverse_path(map, [key], value) do
+    Map.update(map, key, [value], &(&1 ++ [value]))
+  end
+
+  defp put_traverse_path(map, [key | rest], value) do
+    Map.put(map, key, put_traverse_path(Map.get(map, key, %{}), rest, value))
+  end
 
   @doc false
   def filter_stacktrace(stacktrace, []), do: stacktrace
@@ -634,6 +706,24 @@ defmodule Splode do
         else
           handled
         end
+      end
+
+      @doc """
+      Traverses errors, calling `fun` for each leaf error, and returns a nested
+      map of results grouped by each error's `path`.
+
+      See `Splode.traverse_errors/2` for full documentation.
+
+      ## Example
+
+          iex> #{__MODULE__}.traverse_errors(error, fn error ->
+          ...>   Exception.message(error)
+          ...> end)
+          %{name: ["name is required"]}
+      """
+      @impl true
+      def traverse_errors(error_or_errors, fun) when is_function(fun, 1) do
+        Splode.traverse_errors(error_or_errors, fun)
       end
 
       defoverridable set_path: 2
