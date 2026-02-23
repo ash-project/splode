@@ -40,6 +40,24 @@ defmodule Splode.Error do
         raise "Must provide an error class for a splode error, i.e `use Splode.Error, class: :invalid`"
       end
 
+      reserved_fields = [:splode, :bread_crumbs, :vars, :path, :stacktrace, :class]
+
+      user_fields =
+        Enum.map(List.wrap(opts[:fields]), fn
+          {k, _v} -> k
+          k -> k
+        end)
+
+      conflicting = Enum.filter(user_fields, &(&1 in reserved_fields))
+
+      if conflicting != [] do
+        IO.warn(
+          "The following fields conflict with reserved Splode.Error fields: #{inspect(conflicting)}. " <>
+            "Reserved fields are: #{inspect(reserved_fields)}.",
+          Macro.Env.stacktrace(__ENV__)
+        )
+      end
+
       defexception List.wrap(opts[:fields]) ++
                      [
                        splode: nil,
