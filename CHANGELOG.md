@@ -1,9 +1,34 @@
+<!--
+SPDX-FileCopyrightText: 2020 Zach Daniel
+SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs.contributors>
+
+SPDX-License-Identifier: MIT
+-->
+
 # Change Log
 
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](Https://conventionalcommits.org) for commit guidelines.
 
 <!-- changelog -->
+
+## [v0.3.0](https://github.com/ash-project/splode/compare/v0.2.10...v0.3.0) (2026-01-16)
+
+
+
+
+### Features:
+
+* support filtering stacktrace modules in Splode errors by Zach Daniel
+
+## [v0.2.10](https://github.com/ash-project/splode/compare/v0.2.9...v0.2.10) (2026-01-04)
+
+
+
+
+### Improvements:
+
+* add `error_class?` flag to Splode.ErrorClass structs by Zach Daniel
 
 ## [v0.2.9](https://github.com/ash-project/splode/compare/v0.2.8...v0.2.9) (2025-02-28)
 

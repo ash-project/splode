@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.ErrorClass do
   @moduledoc "Tools for working with error classes"
 
@@ -22,6 +26,7 @@ defmodule Splode.ErrorClass do
           else
             fields ++ [errors: []]
           end
+          |> Keyword.put(:error_class?, true)
         end)
         |> Keyword.put(:error_class?, true)
 

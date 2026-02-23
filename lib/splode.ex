@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode do
   @moduledoc """
   Use this module to create your error aggregator and handler.
@@ -13,6 +17,36 @@ defmodule Splode do
     unknown_error: MyApp.Errors.Unknown.Unknown
   end
   ```
+
+  ## Options
+
+  - `:error_classes` - A keyword list mapping error class atoms to error class modules.
+    At least one error class must be provided.
+
+  - `:unknown_error` - The module to use when an error cannot be converted to a known type.
+    This is required.
+
+  - `:merge_with` - A list of other Splode modules whose errors should be recognized and
+    flattened when combined. Optional.
+
+  - `:filter_stacktraces` - A list of modules or module prefixes to filter from stacktraces.
+    For each consecutive sequence of frames matching any filter, only the deepest (last) frame
+    is kept. This is useful for hiding internal implementation details from error stacktraces.
+    Accepts atoms (exact module match) or strings (prefix match). Optional.
+
+    Elixir standard library frames (Enum, Stream, List, Map, etc.) are treated as part of an
+    active matching sequence but are not kept as the "deepest" frame. This prevents stdlib
+    frames from appearing in filtered stacktraces when they're sandwiched between internal
+    module calls.
+
+    ```elixir
+    defmodule MyApp.Errors do
+      use Splode,
+        error_classes: [invalid: MyApp.Errors.Invalid],
+        unknown_error: MyApp.Errors.Unknown,
+        filter_stacktraces: [MyApp.Internal, "MyApp.Internal."]
+    end
+    ```
   """
 
   @doc """
@@ -42,6 +76,64 @@ defmodule Splode do
   """
   @callback from_json(module, map) :: Splode.Error.t()
 
+  @elixir_stdlib [
+    Enum,
+    Stream,
+    Enumerable,
+    Enumerable.List,
+    Enumerable.Map,
+    Enumerable.Function,
+    Enumerable.Stream,
+    List,
+    Map,
+    Keyword,
+    Task,
+    Agent,
+    GenServer
+  ]
+
+  @doc false
+  def filter_stacktrace(stacktrace, []), do: stacktrace
+
+  def filter_stacktrace(stacktrace, filters) when is_list(stacktrace) do
+    do_filter_stacktrace(stacktrace, filters, nil, [])
+  end
+
+  def filter_stacktrace(stacktrace, _filters), do: stacktrace
+
+  defp do_filter_stacktrace([], _filters, nil, acc), do: Enum.reverse(acc)
+  defp do_filter_stacktrace([], _filters, deepest, acc), do: Enum.reverse([deepest | acc])
+
+  defp do_filter_stacktrace([{mod, _, _, _} = frame | rest], filters, current_deepest, acc) do
+    cond do
+      matches_filter?(mod, filters) ->
+        do_filter_stacktrace(rest, filters, frame, acc)
+
+      mod in @elixir_stdlib and current_deepest != nil ->
+        do_filter_stacktrace(rest, filters, current_deepest, acc)
+
+      true ->
+        case current_deepest do
+          nil -> do_filter_stacktrace(rest, filters, nil, [frame | acc])
+          deepest -> do_filter_stacktrace(rest, filters, nil, [frame, deepest | acc])
+        end
+    end
+  end
+
+  defp do_filter_stacktrace([frame | rest], filters, current_deepest, acc) do
+    case current_deepest do
+      nil -> do_filter_stacktrace(rest, filters, nil, [frame | acc])
+      deepest -> do_filter_stacktrace(rest, filters, nil, [frame, deepest | acc])
+    end
+  end
+
+  defp matches_filter?(mod, filters) do
+    Enum.any?(filters, fn
+      matcher when is_atom(matcher) -> mod == matcher
+      prefix when is_binary(prefix) -> String.starts_with?(inspect(mod), prefix)
+    end)
+  end
+
   defmacro __using__(opts) do
     quote bind_quoted: [opts: opts], generated: true, location: :keep do
       @behaviour Splode
@@ -58,6 +150,10 @@ defmodule Splode do
                        )
 
       @merge_with List.wrap(opts[:merge_with])
+      @filter_stacktraces List.wrap(opts[:filter_stacktraces])
+
+      @doc false
+      def __stacktrace_filters__, do: @filter_stacktraces
 
       if Enum.empty?(opts[:error_classes]) do
         raise ArgumentError,
@@ -228,7 +324,7 @@ defmodule Splode do
             |> flatten_preserving_keywords()
             |> Enum.map(fn error ->
               if Enum.any?([__MODULE__ | @merge_with], &splode_error?(error, &1)) do
-                error
+                filter_error_stacktraces(error)
               else
                 to_error(error, Keyword.delete(opts, :bread_crumbs))
               end
@@ -249,9 +345,11 @@ defmodule Splode do
             else
               exception_opts =
                 if opts[:stacktrace] do
+                  filtered = Splode.filter_stacktrace(opts[:stacktrace], @filter_stacktraces)
+
                   [
                     error: value,
-                    stacktrace: %Splode.Stacktrace{stacktrace: opts[:stacktrace]},
+                    stacktrace: %Splode.Stacktrace{stacktrace: filtered},
                     splode: __MODULE__
                   ]
                 else
@@ -381,6 +479,28 @@ defmodule Splode do
         end
       end
 
+      defp filter_error_stacktraces(%{stacktrace: %Splode.Stacktrace{stacktrace: trace}} = error)
+           when is_list(trace) do
+        error = %{
+          error
+          | stacktrace: %Splode.Stacktrace{
+              stacktrace: Splode.filter_stacktrace(trace, @filter_stacktraces)
+            }
+        }
+
+        if Map.has_key?(error, :errors) and is_list(error.errors) do
+          %{error | errors: Enum.map(error.errors, &filter_error_stacktraces/1)}
+        else
+          error
+        end
+      end
+
+      defp filter_error_stacktraces(%{errors: errors} = error) when is_list(errors) do
+        %{error | errors: Enum.map(errors, &filter_error_stacktraces/1)}
+      end
+
+      defp filter_error_stacktraces(error), do: error
+
       defp add_stacktrace(%{stacktrace: _} = error, stacktrace) do
         stacktrace =
           case stacktrace do
@@ -390,18 +510,33 @@ defmodule Splode do
             nil ->
               nil
 
+            %Splode.Stacktrace{stacktrace: trace} ->
+              %Splode.Stacktrace{stacktrace: Splode.filter_stacktrace(trace, @filter_stacktraces)}
+
             stacktrace ->
-              %Splode.Stacktrace{stacktrace: stacktrace}
+              %Splode.Stacktrace{
+                stacktrace: Splode.filter_stacktrace(stacktrace, @filter_stacktraces)
+              }
           end
 
-        %{error | stacktrace: stacktrace || error.stacktrace || fake_stacktrace()}
+        existing_stacktrace =
+          case error.stacktrace do
+            %Splode.Stacktrace{stacktrace: trace} when is_list(trace) ->
+              %Splode.Stacktrace{stacktrace: Splode.filter_stacktrace(trace, @filter_stacktraces)}
+
+            other ->
+              other
+          end
+
+        %{error | stacktrace: stacktrace || existing_stacktrace || fake_stacktrace()}
       end
 
       defp add_stacktrace(e, _), do: e
 
       defp fake_stacktrace do
         {:current_stacktrace, stacktrace} = Process.info(self(), :current_stacktrace)
-        %Splode.Stacktrace{stacktrace: Enum.drop(stacktrace, 3)}
+        filtered = Splode.filter_stacktrace(Enum.drop(stacktrace, 3), @filter_stacktraces)
+        %Splode.Stacktrace{stacktrace: filtered}
       end
 
       defp accumulate_bread_crumbs(error, bread_crumbs) when is_list(bread_crumbs) do

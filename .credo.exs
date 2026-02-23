@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 # This file contains the configuration for Credo and you are probably reading
 # this after creating it with `mix credo.gen.config`.
 #

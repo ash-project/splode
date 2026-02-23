@@ -1,7 +1,11 @@
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.MixProject do
   use Mix.Project
 
-  @version "0.2.9"
+  @version "0.3.0"
 
   @description """
   Splode helps you deal with errors and exceptions in your application that are aggregatable and consistent.
@@ -32,15 +36,19 @@ defmodule Splode.MixProject do
 
   defp package do
     [
-      name: :splode,
+      maintainers: [
+        "Zach Daniel <zach@zachdaniel.dev>"
+      ],
       licenses: ["MIT"],
       files: ~w(lib .formatter.exs mix.exs README* LICENSE*
       CHANGELOG* documentation),
       links: %{
-        GitHub: "https://github.com/ash-project/splode",
-        Discord: "https://discord.gg/HTHRaaVPUc",
-        Website: "https://ash-hq.org",
-        Forum: "https://elixirforum.com/c/elixir-framework-forums/ash-framework-forum"
+        "GitHub" => "https://github.com/ash-project/splode",
+        "Changelog" => "https://github.com/ash-project/splode/blob/main/CHANGELOG.md",
+        "Discord" => "https://discord.gg/HTHRaaVPUc",
+        "Website" => "https://ash-hq.org",
+        "Forum" => "https://elixirforum.com/c/elixir-framework-forums/ash-framework-forum",
+        "REUSE Compliance" => "https://api.reuse.software/info/github.com/ash-project/splode"
       }
     ]
   end
@@ -85,7 +93,7 @@ defmodule Splode.MixProject do
       {:ex_check, "~> 0.12", only: [:dev, :test]},
       {:credo, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 0.0.0", only: [:dev, :test], runtime: false},
-      {:mimic, "~> 1.7", only: [:test]},
+      {:mimic, "~> 2.0", only: [:test]},
       {:sobelow, ">= 0.0.0", only: [:dev, :test], runtime: false},
       {:git_ops, "~> 2.5", only: [:dev, :test]},
       {:mix_audit, ">= 0.0.0", only: [:dev, :test], runtime: false},

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
 defmodule Splode.Error.Unknown do
   @moduledoc "The default top level unknown error container"
   use Splode.ErrorClass, class: :unknown

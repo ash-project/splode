@@ -1,7 +1,12 @@
-version: 2
+# SPDX-FileCopyrightText: 2024 splode contributors <https://github.com/ash-project/splode/graphs/contributors>
+#
+# SPDX-License-Identifier: MIT
+
+---
 updates:
-- package-ecosystem: mix
-  directory: "/"
-  versioning-strategy: lockfile-only
-  schedule:
-    interval: "daily"
+  - directory: /
+    package-ecosystem: mix
+    schedule:
+      interval: monthly
+    versioning-strategy: lockfile-only
+version: 2
