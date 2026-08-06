@@ -54,6 +54,19 @@ defmodule SplodeTest do
     def message(err), do: err |> inspect()
   end
 
+  defmodule UnknownErrorWithValue do
+    @moduledoc false
+    use Splode.Error, fields: [:error, :value], class: :unknown
+    def message(err), do: err |> inspect()
+  end
+
+  defmodule OptOutUnknownError do
+    @moduledoc false
+    use Splode.Error, fields: [:error], class: :unknown
+    def keyword_list_options?, do: false
+    def message(err), do: err |> inspect()
+  end
+
   defmodule ExampleContainerError do
     @moduledoc false
     use Splode.Error, fields: [:description], class: :ui
@@ -225,6 +238,65 @@ defmodule SplodeTest do
 
     div_by_zero = DivByZeroException.exception()
     assert %DivByZeroException{} = SystemError.to_error(div_by_zero)
+  end
+
+  describe "to_error/to_class with keyword lists" do
+    defmodule ValueErrors do
+      @moduledoc false
+      use Splode, error_classes: [sw: SwError], unknown_error: UnknownErrorWithValue
+    end
+
+    defmodule OptOutErrors do
+      @moduledoc false
+      use Splode, error_classes: [sw: SwError], unknown_error: OptOutUnknownError
+    end
+
+    @exit_reason {:noproc, {GenServer, :call, [:some_name, :ping, 5000]}}
+
+    test "option lists are built into the unknown error" do
+      assert %UnknownError{error: "it broke"} = SystemError.to_error(message: "it broke")
+      assert %UnknownError{error: "it broke"} = SystemError.to_error(error: "it broke")
+
+      assert %UnknownError{vars: [thing: 1]} =
+               SystemError.to_error(message: "x", vars: [thing: 1])
+    end
+
+    test "an unknown error declaring :value receives the whole list" do
+      assert %UnknownErrorWithValue{error: "it broke", value: [message: "it broke"]} =
+               ValueErrors.to_error(message: "it broke")
+    end
+
+    test "an unknown error without a :value field does not crash" do
+      assert %UnknownError{} = SystemError.to_error([@exit_reason])
+    end
+
+    test "a list carrying no message is described rather than left nil" do
+      assert %UnknownError{error: "unknown error: " <> _} = SystemError.to_error([@exit_reason])
+
+      assert %UnknownErrorWithValue{error: description, value: [@exit_reason]} =
+               ValueErrors.to_error([@exit_reason])
+
+      assert description =~ "noproc"
+      assert description =~ "GenServer"
+    end
+
+    test "an empty list still produces an unknown error" do
+      assert %UnknownError{} = SystemError.to_error([])
+    end
+
+    test "opting out converts a keyword list like any other term" do
+      assert %OptOutUnknownError{error: "unknown error: " <> described} =
+               OptOutErrors.to_error([@exit_reason])
+
+      assert described == inspect(@exit_reason)
+    end
+
+    test "opting out produces one error per term rather than recursing" do
+      class = OptOutErrors.to_class([@exit_reason, {:shutdown, :closed}])
+
+      assert %Splode.Error.Unknown{} = class
+      assert [%OptOutUnknownError{}, %OptOutUnknownError{}] = class.errors
+    end
   end
 
   describe "traverse_errors" do

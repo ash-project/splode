@@ -26,6 +26,12 @@ defmodule Splode do
   - `:unknown_error` - The module to use when an error cannot be converted to a known type.
     This is required.
 
+    Splode populates the `:error` and `:vars` fields on this module, so it should declare at
+    least `fields: [:error]`. It may also declare a `:value` field, which receives the whole
+    list when an error is built from a keyword list; if the field is not declared, that option
+    is not passed. See `c:Splode.Error.keyword_list_options?/0` for control over when a keyword
+    list is treated as options at all.
+
   - `:merge_with` - A list of other Splode modules whose errors should be recognized and
     flattened when combined. Optional.
 
@@ -204,6 +210,20 @@ defmodule Splode do
       matcher when is_atom(matcher) -> mod == matcher
       prefix when is_binary(prefix) -> String.starts_with?(inspect(mod), prefix)
     end)
+  end
+
+  @doc false
+  def keyword_options?(unknown_error, term) do
+    Keyword.keyword?(term) and unknown_error.keyword_list_options?()
+  end
+
+  @doc false
+  def put_new_value(opts, unknown_error, value) do
+    if Map.has_key?(unknown_error.__struct__(), :value) do
+      Keyword.put_new(opts, :value, value)
+    else
+      opts
+    end
   end
 
   defmacro __using__(opts) do
@@ -389,7 +409,7 @@ defmodule Splode do
 
       def to_class(values, opts) when is_list(values) do
         errors =
-          if Keyword.keyword?(values) && values != [] do
+          if Splode.keyword_options?(@unknown_error, values) && values != [] do
             [to_error(values, Keyword.delete(opts, :bread_crumbs))]
           else
             values
@@ -465,11 +485,13 @@ defmodule Splode do
       def to_error(value, opts \\ [])
 
       def to_error(list, opts) when is_list(list) do
-        if Keyword.keyword?(list) do
+        if Splode.keyword_options?(@unknown_error, list) do
           list
           |> Keyword.take([:error, :vars])
-          |> Keyword.put_new(:error, list[:message])
-          |> Keyword.put_new(:value, list)
+          |> Keyword.put_new_lazy(:error, fn ->
+            list[:message] || "unknown error: #{inspect(list)}"
+          end)
+          |> Splode.put_new_value(@unknown_error, list)
           |> Keyword.put(:splode, __MODULE__)
           |> @unknown_error.exception()
           |> add_stacktrace(opts[:stacktrace])
@@ -533,12 +555,12 @@ defmodule Splode do
       end
 
       defp flatten_preserving_keywords(list) do
-        if Keyword.keyword?(list) do
+        if Splode.keyword_options?(@unknown_error, list) do
           [list]
         else
           Enum.flat_map(list, fn item ->
             cond do
-              Keyword.keyword?(item) ->
+              Splode.keyword_options?(@unknown_error, item) ->
                 [item]
 
               is_list(item) ->

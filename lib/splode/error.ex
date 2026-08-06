@@ -21,6 +21,38 @@ defmodule Splode.Error do
   @callback splode_error?() :: boolean()
   @callback from_json(map) :: struct()
   @callback error_class?() :: boolean()
+
+  @doc """
+  Whether a keyword list should be treated as options for building this error.
+
+  Only consulted for the module configured as a Splode's `:unknown_error`. When it returns
+  `true` — the default — a list that satisfies `Keyword.keyword?/1` is destructured into
+  `:error`, `:vars` and (if declared) `:value`, rather than being converted like any other
+  term.
+
+  That is surprising for terms that happen to parse as keyword lists, such as OTP exit
+  reasons:
+
+  ```elixir
+  Keyword.keyword?([{:noproc, {GenServer, :call, [:some_name, :ping, 5000]}}])
+  #=> true
+  ```
+
+  Returning `false` opts out: keyword lists are then converted like any other list, so
+  `to_error(message: "it broke")` produces two errors rather than one, and `to_error([])`
+  produces an empty error class rather than an unknown error. The default will change to
+  `false` in the next major version.
+
+  ```elixir
+  defmodule MyApp.Errors.Unknown do
+    use Splode.Error, fields: [:error], class: :unknown
+
+    def keyword_list_options?, do: false
+  end
+  ```
+  """
+  @callback keyword_list_options?() :: boolean()
+
   @type t :: Exception.t()
 
   @doc false
@@ -76,6 +108,9 @@ defmodule Splode.Error do
       @impl Splode.Error
       def error_class?, do: @error_class
 
+      @impl Splode.Error
+      def keyword_list_options?, do: true
+
       field_names =
         Enum.map(List.wrap(opts[:fields]), fn
           {k, _v} ->
@@ -121,7 +156,7 @@ defmodule Splode.Error do
         exception(keyword)
       end
 
-      defoverridable exception: 1, from_json: 1
+      defoverridable exception: 1, from_json: 1, keyword_list_options?: 0
     end
   end
 
