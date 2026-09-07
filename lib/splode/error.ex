@@ -17,6 +17,25 @@ defmodule Splode.Error do
     end
   end
   ```
+
+  ## Message vars
+
+  After `message/1` runs, Splode scans the rendered string for `%{key}`
+  placeholders and replaces each with the corresponding value from the error's
+  `vars`. `vars` are therefore an **interpolation surface**: everything in them
+  is intended to be rendered into the message, so never place a value in `vars`
+  that is sensitive or otherwise unsafe to display. `vars` are not a private
+  side-channel for data you don't want in the message.
+
+  Because substitution runs against the *already rendered* string, it cannot
+  distinguish a `%{key}` you wrote in the template from one that appeared
+  because untrusted input was interpolated into the message. If you interpolate
+  externally-controlled text into a message, that text can name any of the
+  error's `vars` and have it substituted. This is only a concern when `vars`
+  hold something you would not want rendered — which, per the rule above, they
+  should not. Prefer interpolating untrusted values through `vars`
+  (`"...%{value}"` with `vars: [value: untrusted]`) rather than splicing them
+  directly into the template string.
   """
   @callback splode_error?() :: boolean()
   @callback from_json(map) :: struct()
