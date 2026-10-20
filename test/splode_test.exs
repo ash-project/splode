@@ -383,6 +383,23 @@ defmodule SplodeTest do
     assert %DivByZeroException{num: 10, denom: 0} = div_by_zero
   end
 
+  test "from_json builds the same vars as exception/1" do
+    json_error =
+      SystemError.from_json(NullReferenceException, %{"vars" => %{"min" => 1, "max" => 10}})
+
+    error = NullReferenceException.exception(vars: [min: 1, max: 10])
+
+    assert Enum.sort(json_error.vars) == Enum.sort(error.vars)
+  end
+
+  test "from_json keeps vars keys that aren't existing atoms as strings" do
+    key = "splode_test_var_" <> Integer.to_string(System.unique_integer([:positive]))
+
+    error = SystemError.from_json(NullReferenceException, %{"vars" => %{key => 1}})
+
+    assert error.vars == [{key, 1}]
+  end
+
   describe "filter_stacktraces" do
     defmodule FilteredInternalError do
       @moduledoc false

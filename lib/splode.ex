@@ -675,13 +675,23 @@ defmodule Splode do
 
         unhandled =
           Map.update(unhandled, "vars", [], fn vars ->
-            Map.to_list(vars)
+            Enum.map(vars, fn {key, value} -> {atomize_var_key(key), value} end)
           end)
 
         json = Map.merge(unhandled, handled)
 
         module.from_json(json)
       end
+
+      # Keys that aren't existing atoms are kept as strings rather than collapsed
+      # to `:unknown`, so they can still be interpolated into the message.
+      defp atomize_var_key(key) when is_binary(key) do
+        String.to_existing_atom(key)
+      rescue
+        ArgumentError -> key
+      end
+
+      defp atomize_var_key(key), do: key
 
       defp process_known_json_keys(json) do
         {handled, unhandled} = Map.split(json, ~w(field fields message path))
